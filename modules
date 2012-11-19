@@ -1,0 +1,24 @@
+# List of modules that you want to include in your initramfs.
+#
+# Syntax:  module_name [args ...]
+#
+# You must run update-initramfs(8) to effect this change.
+#
+# Examples:
+#
+# raid1
+# sd_mod
+ext3
+usbcore
+ehci_hcd
+uhci_hcd
+libusual
+scsi_mod
+crc_t10dif
+sd_mod
+sg
+dock
+libata
+pata_acpi
+usb-storage
+aufs
