@@ -139,7 +139,7 @@ echo
 echo "       root-aufs:  Setting up aufs on ${rootmnt} as root file system "
 echo 
 
-modprobe -Qb aufs
+modprobe -b aufs
 if [ $? -ne 0 ]; then
     echo    root-aufs error:      Failed to load aufs.ko
     exit 0
@@ -191,6 +191,8 @@ if [ $? -ne 0 ]; then
     #exit 0
 fi
 
+[  -d /maskunitroot${maskpoint} ] || mkdir /maskunitroot${maskpoint}
+
 mount --bind /maskunitroot${maskpoint} /rw
 if [ $? -ne 0 ]; then
     echo    root-aufs error:    failed to bind /maskunitroot${maskpoint} to /ro
@@ -207,6 +209,9 @@ if [ $? -ne 0 ]; then
     exit 0
 fi
 
+#[  -d /ro/home ] || mkdir /ro/home
+#mount /dev/sda5 /ro/home
+
 mount -t aufs -o dirs=/rw:/ro=ro aufs /aufs
 if [ $? -ne 0 ]; then
     echo    root-aufs error:      Failed to mount /aufs files system
@@ -215,6 +220,7 @@ fi
 
 #test for mount points on aufs file system
 [  -d /aufs/.rootaufs ] || mkdir /aufs/.rootaufs
+[  -d /aufs/.rootaufs/maskunitroot ] || mkdir /aufs/.rootaufs/maskunitroot
 [  -d /aufs/.rootaufs/ro ] || mkdir /aufs/.rootaufs/ro
 [  -d /aufs/.rootaufs/rw ] || mkdir /aufs/.rootaufs/rw
 
@@ -277,20 +283,25 @@ cat <<EOF >/aufs/etc/fstab
 EOF
 
 #remove root and swap from fstab
-cat /aufs/.rootaufs/ro/etc/fstab|grep -v ' / ' | grep -v swap >>/aufs/etc/fstab  
+cat /aufs/.rootaufs/ro/etc/fstab|grep -v ' / ' | grep -v swap | grep -v ' /home' >>/aufs/etc/fstab  
 if [ $? -ne 0 ]; then
     echo    root-aufs error:      Failed to create /aufs/etc/fstab 
     #exit 0
 fi
 
 
-
+[  -d /aufs/.rootaufs/ro/home ] || mkdir /aufs/.rootaufs/ro/home
+[  -d /aufs/.rootaufs/rw/home ] || mkdir /aufs/.rootaufs/rw/home
+[  -d /aufs/home ] || mkdir /aufs/home
+mount /dev/sda5 /aufs/.rootaufs/ro/home
+mount --bind /aufs/.rootaufs/ro/tmp /aufs/tmp
 
 # add the read only file system to fstab
 #ROOTTYPE=$(/lib/udev/vol_id -t ${ROOT})
 ROOTTYPE=$(cat /proc/mounts|grep ${ROOT}|cut -d' ' -f3)
 ROOTOPTIONS=$(cat /proc/mounts|grep ${ROOT}|cut -d' ' -f4)
 echo ${ROOT} /.rootaufs/ro $ROOTTYPE $ROOTOPTIONS 0 0 >>/aufs/etc/fstab
+echo none /home aufs dirs=/.rootaufs/rw/home:/.rootaufs/ro/home 0 0 >>/aufs/etc/fstab
 
 
 # S22mount on debian systems is not mounting  /ro correctly after boot
@@ -298,6 +309,7 @@ echo ${ROOT} /.rootaufs/ro $ROOTTYPE $ROOTOPTIONS 0 0 >>/aufs/etc/fstab
 #replace last case of exit with #exit
 cat /aufs/.rootaufs/ro/etc/rc.local|sed 's/\(.*\)exit/\1\#exit/' >/aufs/etc/rc.local  
 echo mount -f  /.rootaufs/ro >>/aufs/etc/rc.local 
+echo aa-complain dhclient3 >>/aufs/etc/rc.local 
 
 # add back the root file system. mtab seems to be created by one of the init proceses. 
 echo "echo aufs / aufs rw,xino=/.rootaufs/rw/.aufs.xino,br:/.rootaufs/rw=rw:/.rootaufs/ro=ro 0 0 >>/etc/mtab" >>/aufs/etc/rc.local
